@@ -63,11 +63,17 @@ def main():
     )
     board.pack(padx=16, pady=(0, 16))
 
-    snake = [(9, 10), (8, 10), (7, 10)]
-    food = (13, 10)
+    footer = ctk.CTkFrame(app, fg_color="transparent")
+    footer.pack(fill="x", padx=16, pady=(0, 16))
+    status = ctk.CTkLabel(footer, text="", anchor="w")
+    status.pack(side="left")
+
+    snake = []
+    food = None
     points = 0
     direction = (1, 0)
     next_direction = None
+    move_timer = None
 
     def draw_snake():
         board.delete("snake")
@@ -83,7 +89,7 @@ def main():
     def steer(event):
         nonlocal next_direction
         requested = DIRECTIONS.get(event.keysym.lower())
-        if requested is None:
+        if move_timer is None or requested is None:
             return
 
         opposite = (-direction[0], -direction[1])
@@ -91,37 +97,58 @@ def main():
             next_direction = requested
 
     def move_snake():
-        nonlocal direction, food, points
+        nonlocal direction, food, move_timer, points
+        move_timer = None
         if next_direction is not None:
             column, row = snake[0]
             dx, dy = next_direction
             new_column, new_row = column + dx, row + dy
             new_head = (new_column, new_row)
             if (
-                0 <= new_column < BOARD_CELLS
-                and 0 <= new_row < BOARD_CELLS
-                and new_head not in snake[:-1]
+                not 0 <= new_column < BOARD_CELLS
+                or not 0 <= new_row < BOARD_CELLS
+                or new_head in snake[:-1]
             ):
-                snake.insert(0, new_head)
-                direction = next_direction
-                if new_head == food:
-                    points += 1
-                    score.configure(text="1 ponto" if points == 1 else f"{points} pontos")
-                    food = choose_food_position(snake)
-                    draw_food()
-                else:
-                    snake.pop()
-                draw_snake()
+                status.configure(text="Fim de jogo")
+                return
 
-        if food is not None:
-            app.after(MOVE_INTERVAL_MS, move_snake)
+            snake.insert(0, new_head)
+            direction = next_direction
+            if new_head == food:
+                points += 1
+                score.configure(text="1 ponto" if points == 1 else f"{points} pontos")
+                food = choose_food_position(snake)
+                draw_food()
+            else:
+                snake.pop()
+            draw_snake()
 
-    draw_food()
-    draw_snake()
+        if food is None:
+            status.configure(text="Tabuleiro completo")
+            return
 
+        move_timer = app.after(MOVE_INTERVAL_MS, move_snake)
+
+    def restart_game():
+        nonlocal direction, food, move_timer, next_direction, points
+        if move_timer is not None:
+            app.after_cancel(move_timer)
+
+        snake[:] = [(9, 10), (8, 10), (7, 10)]
+        food = (13, 10)
+        points = 0
+        direction = (1, 0)
+        next_direction = None
+        score.configure(text="0 pontos")
+        status.configure(text="")
+        draw_food()
+        draw_snake()
+        board.focus_set()
+        move_timer = app.after(MOVE_INTERVAL_MS, move_snake)
+
+    ctk.CTkButton(footer, text="Reiniciar", command=restart_game).pack(side="right")
     app.bind("<KeyPress>", steer)
-    board.focus_set()
-    app.after(MOVE_INTERVAL_MS, move_snake)
+    restart_game()
 
     app.mainloop()
 
