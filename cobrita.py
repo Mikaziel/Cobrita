@@ -6,7 +6,9 @@ import customtkinter as ctk
 
 BOARD_CELLS = 20
 CELL_SIZE = 20
+BOARD_SIZE = BOARD_CELLS * CELL_SIZE
 MOVE_INTERVAL_MS = 150
+WINDOW_COLOR = "#17201b"
 DIRECTIONS = {
     "up": (0, -1),
     "w": (0, -1),
@@ -44,20 +46,14 @@ def choose_food_position(snake):
     return choice(free_cells) if free_cells else None
 
 
-def main():
-    ctk.set_appearance_mode("dark")
-    app = ctk.CTk(fg_color="#17201b")
-    app.title("Cobrita")
-    app.resizable(False, False)
-
+def show_game(app):
     score = ctk.CTkLabel(app, text="0 pontos", anchor="w")
     score.pack(fill="x", padx=16, pady=(12, 8))
 
-    board_size = BOARD_CELLS * CELL_SIZE
     board = tk.Canvas(
         app,
-        width=board_size,
-        height=board_size,
+        width=BOARD_SIZE,
+        height=BOARD_SIZE,
         background="#0c130f",
         highlightthickness=0,
     )
@@ -154,6 +150,40 @@ def main():
     ctk.CTkButton(footer, text="Reiniciar (R)", command=restart_game).pack(side="right")
     app.bind("<KeyPress>", handle_key)
     restart_game()
+
+
+def main():
+    ctk.set_appearance_mode("dark")
+    app = ctk.CTk(fg_color=WINDOW_COLOR)
+    app.title("Cobrita")
+    app.resizable(False, False)
+
+    menu_screen = ctk.CTkFrame(
+        app,
+        width=BOARD_SIZE + 32,
+        height=508,
+        fg_color=WINDOW_COLOR,
+        corner_radius=0,
+    )
+    menu_screen.pack(fill="both", expand=True)
+    menu_screen.grid_propagate(False)
+    menu_screen.grid_columnconfigure(0, weight=1)
+    menu_screen.grid_rowconfigure(0, weight=1)
+    menu_screen.grid_rowconfigure(3, weight=1)
+
+    def start_game():
+        menu_screen.pack_forget()
+        show_game(app)
+
+    ctk.CTkLabel(
+        menu_screen,
+        text="Cobrita",
+        font=ctk.CTkFont(size=56, weight="bold"),
+        text_color="#73d79a",
+    ).grid(row=1, column=0, pady=(0, 20))
+    ctk.CTkButton(
+        menu_screen, text="Play", command=start_game, width=144, height=40,
+    ).grid(row=2, column=0)
 
     app.mainloop()
 
