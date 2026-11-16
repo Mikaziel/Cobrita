@@ -1,4 +1,5 @@
 import tkinter as tk
+from random import choice
 
 import customtkinter as ctk
 
@@ -32,6 +33,17 @@ def draw_cell(board, column, row, color, tag):
     )
 
 
+def choose_food_position(snake):
+    occupied = set(snake)
+    free_cells = [
+        (column, row)
+        for row in range(BOARD_CELLS)
+        for column in range(BOARD_CELLS)
+        if (column, row) not in occupied
+    ]
+    return choice(free_cells) if free_cells else None
+
+
 def main():
     ctk.set_appearance_mode("dark")
     app = ctk.CTk(fg_color="#17201b")
@@ -52,6 +64,8 @@ def main():
     board.pack(padx=16, pady=(0, 16))
 
     snake = [(9, 10), (8, 10), (7, 10)]
+    food = (13, 10)
+    points = 0
     direction = (1, 0)
     next_direction = None
 
@@ -59,6 +73,12 @@ def main():
         board.delete("snake")
         for column, row in snake:
             draw_cell(board, column, row, "#73d79a", "snake")
+
+    def draw_food():
+        board.delete("food")
+        if food is not None:
+            column, row = food
+            draw_cell(board, column, row, "#ff8178", "food")
 
     def steer(event):
         nonlocal next_direction
@@ -71,20 +91,32 @@ def main():
             next_direction = requested
 
     def move_snake():
-        nonlocal direction
+        nonlocal direction, food, points
         if next_direction is not None:
             column, row = snake[0]
             dx, dy = next_direction
             new_column, new_row = column + dx, row + dy
-            if 0 <= new_column < BOARD_CELLS and 0 <= new_row < BOARD_CELLS:
-                snake.insert(0, (new_column, new_row))
-                snake.pop()
+            new_head = (new_column, new_row)
+            if (
+                0 <= new_column < BOARD_CELLS
+                and 0 <= new_row < BOARD_CELLS
+                and new_head not in snake[:-1]
+            ):
+                snake.insert(0, new_head)
                 direction = next_direction
+                if new_head == food:
+                    points += 1
+                    score.configure(text="1 ponto" if points == 1 else f"{points} pontos")
+                    food = choose_food_position(snake)
+                    draw_food()
+                else:
+                    snake.pop()
                 draw_snake()
 
-        app.after(MOVE_INTERVAL_MS, move_snake)
+        if food is not None:
+            app.after(MOVE_INTERVAL_MS, move_snake)
 
-    draw_cell(board, 13, 10, "#ff8178", "food")
+    draw_food()
     draw_snake()
 
     app.bind("<KeyPress>", steer)
