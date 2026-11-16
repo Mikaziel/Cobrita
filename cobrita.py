@@ -86,9 +86,14 @@ def main():
             column, row = food
             draw_cell(board, column, row, "#ff8178", "food")
 
-    def steer(event):
+    def handle_key(event):
         nonlocal next_direction
-        requested = DIRECTIONS.get(event.keysym.lower())
+        key = event.keysym.lower()
+        if key == "r":
+            restart_game()
+            return
+
+        requested = DIRECTIONS.get(key)
         if move_timer is None or requested is None:
             return
 
@@ -146,8 +151,8 @@ def main():
         board.focus_set()
         move_timer = app.after(MOVE_INTERVAL_MS, move_snake)
 
-    ctk.CTkButton(footer, text="Reiniciar", command=restart_game).pack(side="right")
-    app.bind("<KeyPress>", steer)
+    ctk.CTkButton(footer, text="Reiniciar (R)", command=restart_game).pack(side="right")
+    app.bind("<KeyPress>", handle_key)
     restart_game()
 
     app.mainloop()
