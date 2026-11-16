@@ -9,6 +9,7 @@ CELL_SIZE = 20
 BOARD_SIZE = BOARD_CELLS * CELL_SIZE
 MOVE_INTERVAL_MS = 150
 WINDOW_COLOR = "#17201b"
+CHARACTERS = {"Mig": "#bf8cff", "Bibia": "#ef4656"}
 DIRECTIONS = {
     "up": (0, -1),
     "w": (0, -1),
@@ -46,12 +47,13 @@ def choose_food_position(snake):
     return choice(free_cells) if free_cells else None
 
 
-def show_game(app):
-    score = ctk.CTkLabel(app, text="0 pontos", anchor="w")
+def create_game_screen(app, show_menu):
+    game_screen = ctk.CTkFrame(app, fg_color="transparent", corner_radius=0)
+    score = ctk.CTkLabel(game_screen, text="0 pontos", anchor="w")
     score.pack(fill="x", padx=16, pady=(12, 8))
 
     board = tk.Canvas(
-        app,
+        game_screen,
         width=BOARD_SIZE,
         height=BOARD_SIZE,
         background="#0c130f",
@@ -59,7 +61,7 @@ def show_game(app):
     )
     board.pack(padx=16, pady=(0, 16))
 
-    footer = ctk.CTkFrame(app, fg_color="transparent")
+    footer = ctk.CTkFrame(game_screen, fg_color="transparent")
     footer.pack(fill="x", padx=16, pady=(0, 16))
     status = ctk.CTkLabel(footer, text="", anchor="w")
     status.pack(side="left")
@@ -70,20 +72,24 @@ def show_game(app):
     direction = (1, 0)
     next_direction = None
     move_timer = None
+    snake_color: str
 
     def draw_snake():
         board.delete("snake")
         for column, row in snake:
-            draw_cell(board, column, row, "#73d79a", "snake")
+            draw_cell(board, column, row, snake_color, "snake")
 
     def draw_food():
         board.delete("food")
         if food is not None:
             column, row = food
-            draw_cell(board, column, row, "#ff8178", "food")
+            draw_cell(board, column, row, "#f5c45c", "food")
 
     def handle_key(event):
         nonlocal next_direction
+        if not game_screen.winfo_ismapped():
+            return
+
         key = event.keysym.lower()
         if key == "r":
             restart_game()
@@ -147,9 +153,38 @@ def show_game(app):
         board.focus_set()
         move_timer = app.after(MOVE_INTERVAL_MS, move_snake)
 
+    def open_game(color):
+        nonlocal snake_color
+        snake_color = color
+        game_screen.pack(fill="both", expand=True)
+        restart_game()
+
+    def go_back():
+        nonlocal move_timer
+        if move_timer is not None:
+            app.after_cancel(move_timer)
+            move_timer = None
+        game_screen.pack_forget()
+        show_menu()
+
     ctk.CTkButton(footer, text="Reiniciar (R)", command=restart_game).pack(side="right")
+    ctk.CTkButton(footer, text="Voltar", command=go_back, width=96).pack(
+        side="right", padx=(0, 8)
+    )
     app.bind("<KeyPress>", handle_key)
-    restart_game()
+    return open_game
+
+
+def create_menu_frame(app):
+    screen = ctk.CTkFrame(
+        app,
+        width=BOARD_SIZE + 32,
+        height=508,
+        fg_color=WINDOW_COLOR,
+        corner_radius=0,
+    )
+    screen.grid_propagate(False)
+    return screen
 
 
 def main():
@@ -158,22 +193,33 @@ def main():
     app.title("Cobrita")
     app.resizable(False, False)
 
-    menu_screen = ctk.CTkFrame(
-        app,
-        width=BOARD_SIZE + 32,
-        height=508,
-        fg_color=WINDOW_COLOR,
-        corner_radius=0,
-    )
-    menu_screen.pack(fill="both", expand=True)
-    menu_screen.grid_propagate(False)
+    menu_screen = create_menu_frame(app)
     menu_screen.grid_columnconfigure(0, weight=1)
     menu_screen.grid_rowconfigure(0, weight=1)
     menu_screen.grid_rowconfigure(3, weight=1)
 
-    def start_game():
+    selection_screen = create_menu_frame(app)
+    selection_screen.grid_rowconfigure(0, weight=1)
+    selection_screen.grid_rowconfigure(5, weight=1)
+    open_game = None
+
+    def show_menu():
+        menu_screen.pack(fill="both", expand=True)
+
+    def show_selection():
         menu_screen.pack_forget()
-        show_game(app)
+        selection_screen.pack(fill="both", expand=True)
+
+    def back_from_selection():
+        selection_screen.pack_forget()
+        show_menu()
+
+    def start_game(color):
+        nonlocal open_game
+        selection_screen.pack_forget()
+        if open_game is None:
+            open_game = create_game_screen(app, show_menu)
+        open_game(color)
 
     ctk.CTkLabel(
         menu_screen,
@@ -182,9 +228,46 @@ def main():
         text_color="#73d79a",
     ).grid(row=1, column=0, pady=(0, 20))
     ctk.CTkButton(
-        menu_screen, text="Play", command=start_game, width=144, height=40,
+        menu_screen,
+        text="Play",
+        command=show_selection,
+        width=144,
+        height=40,
     ).grid(row=2, column=0)
 
+    ctk.CTkLabel(
+        selection_screen,
+        text="Escolha sua cobrita",
+        font=ctk.CTkFont(size=26, weight="bold"),
+    ).grid(row=1, column=0, columnspan=len(CHARACTERS), pady=(0, 28))
+
+    for column, (name, color) in enumerate(CHARACTERS.items()):
+        selection_screen.grid_columnconfigure(column, weight=1)
+        preview = tk.Canvas(
+            selection_screen,
+            width=3 * CELL_SIZE,
+            height=CELL_SIZE,
+            background=WINDOW_COLOR,
+            highlightthickness=0,
+        )
+        for segment in range(3):
+            draw_cell(preview, segment, 0, color, "character")
+        preview.grid(row=2, column=column, pady=(0, 10))
+
+        ctk.CTkButton(
+            selection_screen,
+            text=name,
+            command=lambda color=color: start_game(color),
+        ).grid(row=3, column=column)
+
+    ctk.CTkButton(
+        selection_screen,
+        text="Voltar",
+        command=back_from_selection,
+        width=96,
+    ).grid(row=4, column=0, columnspan=len(CHARACTERS), pady=(24, 0))
+
+    show_menu()
     app.mainloop()
 
 
